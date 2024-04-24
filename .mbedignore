@@ -1,0 +1,7 @@
+connectivity/*
+mbed-os/features/frameworks/utest/*
+mbed-os/features/frameworks/unity/*
+mbed-os/features/frameworks/greentea-client/*
+storage/*
+drivers/usb/*
+hal/usb/*
