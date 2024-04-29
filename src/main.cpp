@@ -1,4 +1,3 @@
-
 #include <mbed.h>
 #include "arm_math.h"
 #include "stm32f4xx_hal.h"
@@ -6,6 +5,7 @@
 #include "KalmanFilter.h"
 #include "analyse.h"
 #include <LCD_DISCO_F429ZI.h>
+
 
 KalmanFilter kf_x(0.01, 0.03);
 KalmanFilter kf_y(0.01, 0.03);
@@ -26,6 +26,7 @@ KalmanFilter kf_z(0.01, 0.03);
 #define SCALING_FACTOR (17.5f * 0.0174532925199432957692236907684886f / 1000.0f)
 
 
+
 LCD_DISCO_F429ZI lcd;
 const uint32_t BUFFER_SIZE = 20;
 float32_t gx_buffer[BUFFER_SIZE], gy_buffer[BUFFER_SIZE], gz_buffer[BUFFER_SIZE];
@@ -38,6 +39,7 @@ void spi_cb(int event)
 {
     flags.set(SPI_FLAG);
 }
+
 
 void lcd_x_y_z(float gx, float gy, float gz)
 {
@@ -56,15 +58,11 @@ void lcd_x_y_z(float gx, float gy, float gz)
   lcd.DisplayStringAt(0, LINE(8), (uint8_t *)&message_gz, CENTER_MODE);
 }
 
+
 int main()
 {
     // Initialize the SPI object with specific pins.
     SPI spi(PF_9, PF_8, PF_7, PC_1, use_gpio_ssel);
-
-    BSP_LCD_SetFont(&Font20);
-    lcd.Clear(LCD_COLOR_BLACK);
-    lcd.SetBackColor(LCD_COLOR_BLACK);
-    lcd.SetTextColor(LCD_COLOR_BLUE);
 
     // Buffers for sending and receiving data over SPI.
     uint8_t write_buf[32], read_buf[32];
@@ -89,7 +87,7 @@ int main()
 
     while(1){
 
-        uint16_t raw_gx, raw_gy, raw_gz;
+        int16_t raw_gx, raw_gy, raw_gz;
         float gx, gy, gz;
 
         // Prepare to read the gyroscope values starting from OUT_X_L
@@ -112,20 +110,13 @@ int main()
             // printf(">z_axis: %d|g \n", raw_gz);
 
         // Convert raw data to actual values using a scaling factor
-        gx = ((float) raw_gx) * SCALING_FACTOR -20 ;
-        
+        gx = ((float) raw_gx) * SCALING_FACTOR;
         gy = ((float) raw_gy) * SCALING_FACTOR;
-        
-        if ( gy > 20)
-        {
-          gy = gy -20;
-        }
-        
-         
-        gz = ((float) raw_gz) * SCALING_FACTOR -20 ;
+        gz = ((float) raw_gz) * SCALING_FACTOR;
 
         // Print the actual values
         //printf("Actual -> \t\tgx: %4.5f \t gy: %4.5f \t gz: %4.5f \t\n", gx, gy, gz);
+        lcd_x_y_z(gx, gy, gz);
         
         // 假设dt为采样间隔,单位为秒
         float dt = 0.1;
@@ -141,9 +132,6 @@ int main()
         
         // Print the filtered values
         printf("Filtered -> \t\tgx: %4.5f \t gy: %4.5f \t gz: %4.5f \t\n", gx_filtered, gy_filtered, gz_filtered);
-        
-        //
-        lcd_x_y_z(gx_filtered, gy_filtered, gz_filtered);
         // 分析时域特征
         // 将滤波后的数据存入缓冲区
         gx_buffer[buffer_index] = gx_filtered;
@@ -182,12 +170,9 @@ int main()
 
             buffer_index = 0;  // 清空缓冲区
         }
-        
-        ThisThread::sleep_for(1000ms);
+       
+        // ThisThread::sleep_for(1000ms);
 
 
     }
 }
-
-
-
