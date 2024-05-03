@@ -28,7 +28,7 @@ KalmanFilter kf_z(0.01, 0.003);
 #define PI 3.14159265358979323846
 
 LCD_DISCO_F429ZI lcd;
-const uint32_t BUFFER_SIZE = 20;
+const uint32_t BUFFER_SIZE = 64;
 float32_t gx_buffer[BUFFER_SIZE], gy_buffer[BUFFER_SIZE], gz_buffer[BUFFER_SIZE];
 uint32_t buffer_index = 0;
 
@@ -139,17 +139,16 @@ int main()
         // 对gz进行滤波
         float gz_filtered = kf_z.update(gz, 0, dt);
         
-        // Print the filtered values
-        //printf("Filtered -> \t\tgx: %4.5f \t gy: %4.5f \t gz: %4.5f \t\n", gx_filtered, gy_filtered, gz_filtered);
+        printf("Filtered -> \t\tgx: %4.5f \t gy: %4.5f \t gz: %4.5f \t\n", gx_filtered, gy_filtered, gz_filtered);
         
         // 分析时域特征
         // 将滤波后的数据存入缓冲区
-        // gx_buffer[buffer_index] = gx_filtered;
-        // gy_buffer[buffer_index] = gy_filtered;
-        // gz_buffer[buffer_index] = gz_filtered;
-        gx_buffer[buffer_index] = gx;
-        gy_buffer[buffer_index] = gy;
-        gz_buffer[buffer_index] = gz;
+        gx_buffer[buffer_index] = gx_filtered;
+        gy_buffer[buffer_index] = gy_filtered;
+        gz_buffer[buffer_index] = gz_filtered;
+        // gx_buffer[buffer_index] = gx;
+        // gy_buffer[buffer_index] = gy;
+        // gz_buffer[buffer_index] = gz;
         buffer_index++;
 
         // 如果缓冲区已满,计算时域特征并清空缓冲区
@@ -246,8 +245,6 @@ int main()
         }
 
         ThisThread::sleep_for(10ms);
-
-
     }
 }
 
