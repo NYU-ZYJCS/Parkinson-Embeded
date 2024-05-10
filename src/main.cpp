@@ -55,11 +55,6 @@ void applyHanningWindow(float32_t *input, int size) {
     }
 }
 
-bool check(int16_t freq, float32_t magnitude) {
-
-    return freq >= 3 && freq <= 6;
-}
-
 pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     arm_rfft_init_f32(&S, &S_CFFT, FFT_SIZE, 0, 1);
 
@@ -123,13 +118,13 @@ int main()
     spi.transfer(write_buf, 2, read_buf, 2, spi_cb);
     flags.wait_all(SPI_FLAG);
 
-    float32_t gx_buffer[BUFFER_SIZE], gy_buffer[BUFFER_SIZE], gz_buffer[BUFFER_SIZE];
+    float32_t gx_buffer[BUFFER_SIZE];
     uint32_t count = 0;
 
     while(1){
         int16_t raw_gx, raw_gy, raw_gz;
         float gx, gy, gz;
-        int16_t tremors_per_second, tremors_sum;
+        int16_t tremor_per_second, tremor_sum;
         float32_t tremor_magnitude, tremor_magnitude_sum;
 
         // Prepare to read the gyroscope values starting from OUT_X_L
@@ -157,7 +152,7 @@ int main()
         uint8_t message_tremors_cur_second[20];
         uint8_t message_magnitude_cur_second[20];
 
-        sprintf((char *)message_tremors_cur_second, "Tremors: %d/s", tremors_per_second);
+        sprintf((char *)message_tremors_cur_second, "Tremors: %d/s", tremor_per_second);
         sprintf((char *)message_magnitude_cur_second, "Magnitude: %f", tremor_magnitude);
         lcd.DisplayStringAt(0, LINE(12), (uint8_t *)"Current Second's Data", CENTER_MODE);
         lcd.DisplayStringAt(0, LINE(13), (uint8_t *)message_tremors_cur_second, CENTER_MODE);
@@ -167,13 +162,9 @@ int main()
         float dt = 0.05;
         // 对gx进行滤波
         float32_t gx_filtered = kf_x.update(gx, 0, dt);
-        float32_t gy_filtered = kf_y.update(gy, 0, dt);
-        float32_t gz_filtered = kf_z.update(gz, 0, dt);
         
 
         gx_buffer[buffer_index] = gx_filtered;
-        gy_buffer[buffer_index] = gy_filtered;
-        gz_buffer[buffer_index] = gz_filtered;
         buffer_index++;
 
         // 如果缓冲区已满,计算时域特征并清空缓冲区
@@ -181,50 +172,40 @@ int main()
             seconds++;
             // Call findPeak and store the results
             std::pair<uint32_t, float32_t> gx_peak_result = findPeak(gx_buffer);
-            std::pair<uint32_t, float32_t> gy_peak_result = findPeak(gy_buffer);
-            std::pair<uint32_t, float32_t> gz_peak_result = findPeak(gz_buffer);
 
-            std::array<std::pair<int16_t, float>, 3> peak_results = {gx_peak_result, gy_peak_result, gz_peak_result};
-            peak_results[0].first = round(gx_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
-            peak_results[1].first = round(gy_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
-            peak_results[2].first = round(gz_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
+            tremor_per_second = round(gx_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
+            tremor_magnitude = gx_peak_result.second;
 
-            std::sort(peak_results.begin(), peak_results.end(), [](const std::pair<int16_t, float> &a, const std::pair<int16_t, float> &b) {
-                return a.second > b.second;
-            });
-            
-            
+            printf("Tremors: %d/s, Magnitude: %f\n", tremor_per_second, tremor_magnitude);
 
-            // int16_t tremors_per_second = max({gx_freq, gy_freq, gz_freq}), tremors_sum;
-            // float32_t tremor_magnitude = max({gx_peak, gy_peak, gz_peak}), tremor_magnitude_sum;
-            tremors_per_second = peak_results[0].first;
-            tremor_magnitude = peak_results[0].second;
-
-            if (tremors_per_second >= 3 && tremors_per_second <= 6) {
-                ++count;
-                tremors_sum += tremors_per_second;
+            if (tremor_per_second >= 3 && tremor_per_second <= 15 && tremor_magnitude >= 0.5) {
+                count++;
+                tremor_sum += tremor_per_second;
                 tremor_magnitude_sum += tremor_magnitude;
             }
+            
 
             if (seconds == 10) {
+                float32_t tremors_avg = (float)tremor_sum / count;
+                float32_t tremor_magnitude_avg = tremor_magnitude_sum / count;
                 if (count >= threshold) {
                     uint8_t message_tremors[20];
                     uint8_t message_tremor_magnitude[20];
 
-                    sprintf((char *)message_tremors, "Tremors: %4.0f/s", (float)tremors_sum / count);
+                    sprintf((char *)message_tremors, "Tremors: %4.0f/s", (float)tremor_sum / count);
                     sprintf((char *)message_tremor_magnitude, "Magnitude: %f", tremor_magnitude_sum / count);
-                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Pakinson Detected", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"Average Data in 10s", CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(6), (uint8_t *)message_tremors, CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(7), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
                 } else {
-                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Pakinson Detected", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
                 }
-                ThisThread::sleep_for(5s);
+                ThisThread::sleep_for(30s);
                 lcd.Clear(LCD_COLOR_WHITE);
                 seconds = 0;
                 count = 0;
-                tremors_sum = 0;
+                tremor_sum = 0;
                 tremor_magnitude_sum = 0;
             }
             buffer_index = 0;  // 清空缓冲区
@@ -232,4 +213,3 @@ int main()
         ThisThread::sleep_for(20ms);
     }
 }
-
