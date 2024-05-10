@@ -55,6 +55,7 @@ void applyHanningWindow(float32_t *input, int size) {
     }
 }
 
+
 pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     arm_rfft_init_f32(&S, &S_CFFT, FFT_SIZE, 0, 1);
 
@@ -80,7 +81,16 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
             fft_output[2*i] = 0;     // 实部置零
             fft_output[2*i + 1] = 0; // 虚部置零
         }
-    }
+    }  
+
+    // 频谱功率分析
+    float32_t power[FFT_SIZE / 2];
+    arm_cmplx_mag_squared_f32(fft_output, power, FFT_SIZE / 2);
+
+    float32_t spectral_energy = 0;
+    for (uint32_t i = 0; i < FFT_SIZE / 2; i++) {
+        spectral_energy += power[i];
+    } 
 
     // 计算频谱幅值
     float32_t spectrum[FFT_SIZE / 2];
@@ -91,7 +101,7 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     uint32_t peak_index = 0;
     arm_max_f32(spectrum, FFT_SIZE / 2, &peak, &peak_index);
 
-    return {peak_index, peak};
+    return {peak_index, spectral_energy};
 }
 
 int main()
@@ -118,7 +128,7 @@ int main()
     spi.transfer(write_buf, 2, read_buf, 2, spi_cb);
     flags.wait_all(SPI_FLAG);
 
-    float32_t gx_buffer[BUFFER_SIZE];
+    float32_t gx_buffer[BUFFER_SIZE], gz_buffer[BUFFER_SIZE];
     uint32_t count = 0;
 
     while(1){
@@ -162,19 +172,19 @@ int main()
         float dt = 0.05;
         // 对gx进行滤波
         float32_t gx_filtered = kf_x.update(gx, 0, dt);
+        float32_t gz_filtered = kf_z.update(gz, 0, dt);
         
-
-        gx_buffer[buffer_index] = gx_filtered;
+        gz_buffer[buffer_index] = gz;
         buffer_index++;
 
         // 如果缓冲区已满,计算时域特征并清空缓冲区
         if (buffer_index == BUFFER_SIZE) {
             seconds++;
             // Call findPeak and store the results
-            std::pair<uint32_t, float32_t> gx_peak_result = findPeak(gx_buffer);
+            std::pair<uint32_t, float32_t> gz_peak_result = findPeak(gz_buffer);
 
-            tremor_per_second = round(gx_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
-            tremor_magnitude = gx_peak_result.second;
+            tremor_per_second = round(gz_peak_result.first * ((float)SAMPLE_RATE / FFT_SIZE));
+            tremor_magnitude = gz_peak_result.second;
 
             printf("Tremors: %d/s, Magnitude: %f\n", tremor_per_second, tremor_magnitude);
 
@@ -201,7 +211,7 @@ int main()
                 } else {
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
                 }
-                ThisThread::sleep_for(30s);
+                // ThisThread::sleep_for(30s);
                 lcd.Clear(LCD_COLOR_WHITE);
                 seconds = 0;
                 count = 0;
