@@ -1,39 +1,22 @@
+**Overview**
+Our Tremor Challenge project focuses on creating a wearable Parkinsonian tremor and its intensity detector using the STM32F429 Discovery board. The device utilizes the onboard gyroscope to measure angular velocities, aiding in the detection and assessment of the intensity of resting tremors, characteristic of Parkinson's disease.
 
-This directory is intended for project header files.
+**Objective**
+To develop a reliable tremor detection system that measures the gyroscope's real-time rotation to spot the occurrence and intensity of a resting tremor.
 
-A header file is a file containing C declarations and macro definitions
-to be shared between several project source files. You request the use of a
-header file in your project source file (C, C++, etc) located in `src` folder
-by including it, with the C preprocessing directive `#include'.
+**Requirements**
 
-```src/main.c
+- STM32F429 Discovery Board with built-in gyroscope
+- Power supply/USB power bank
+- PlatformIO IDE
 
-#include "header.h"
+**Setup and Configuration**
 
-int main (void)
-{
- ...
-}
-```
+- Begin with an SPI object instance to communicate with the gyroscope.
+- Configure the gyroscope control registers (CTRL_REG1 and CTRL_REG4).
+- Implement the main loop to read XYZ values from the gyroscope.
+- Apply Kalman filtering to the gyroscope data.
+- Use the provided utilities to analyze the time-domain features of the filtered data.
 
-Including a header file produces the same results as copying the header file
-into each source file that needs it. Such copying would be time-consuming
-and error-prone. With a header file, the related declarations appear
-in only one place. If they need to be changed, they can be changed in one
-place, and programs that include the header file will automatically use the
-new version when next recompiled. The header file eliminates the labor of
-finding and changing all the copies as well as the risk that a failure to
-find one copy will result in inconsistencies within a program.
-
-In C, the usual convention is to give header files names that end with `.h'.
-It is most portable to use only letters, digits, dashes, and underscores in
-header file names, and at most one dot.
-
-Read more about using header files in official GCC documentation:
-
-* Include Syntax
-* Include Operation
-* Once-Only Headers
-* Computed Includes
-
-https://gcc.gnu.org/onlinedocs/cpp/Header-Files.html
+**Output and Visualization**
+STM32F429 Discovery board displays whether a tremor has been detected or not, and if detected, the display updates to show the tremor’s intensity measured over the 10-second period. This allows users to immediately detect the status of tremor detection and its severity.
