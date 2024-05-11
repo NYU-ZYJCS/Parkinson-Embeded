@@ -7,13 +7,12 @@
 #include "analyse.h"
 #include <LCD_DISCO_F429ZI.h>
 
-KalmanFilter kf_x(0.03, 0.005);
-KalmanFilter kf_y(0.03, 0.005);
-KalmanFilter kf_z(0.03, 0.005);
 
+DigitalOut led2(LED2);
+DigitalOut led1(LED1);
 // TODOs:
 // [1] Get started with an SPI object instance and connect to the Gyroscope!
-// [2] Read the XYZ axis from the Gyroscope and Visualize on the Teleplot. 
+// [2] Read the XYZ axis from the Gyroscope and Visualize on the Teleplot.
 // [3] Fetching Data from the sensor via Polling vs Interrupt ?
 
 // Define control register addresses and their configurations
@@ -33,7 +32,7 @@ KalmanFilter kf_z(0.03, 0.005);
 LCD_DISCO_F429ZI lcd;
 const uint32_t BUFFER_SIZE = 50;
 const uint32_t time_window = 10;
-const uint32_t threshold = 7;
+const uint32_t threshold = 5;
 uint32_t buffer_index = 0;
 uint32_t seconds = 0;
 
@@ -42,12 +41,11 @@ arm_cfft_radix4_instance_f32 S_CFFT;
 
 EventFlags flags;
 
-void spi_cb(int event)
-{
+void spi_cb(int event) {
     flags.set(SPI_FLAG);
 }
 
-
+// 应用汉宁窗，减小频谱泄漏
 void applyHanningWindow(float32_t *input, int size) {
     for (int i = 0; i < size; i++) {
         float window = 0.5 - 0.5 * cos(2 * M_PI * i / (size - 1));
@@ -55,13 +53,12 @@ void applyHanningWindow(float32_t *input, int size) {
     }
 }
 
-
+// 寻找频谱峰值
 pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     arm_rfft_init_f32(&S, &S_CFFT, FFT_SIZE, 0, 1);
 
     float32_t fft_input[FFT_SIZE];
     float32_t fft_output[FFT_SIZE * 2];
-
 
     // 频谱分析
     // 将gx_buffer复制到gx_fft_input,如果gx_buffer长度小于FFT_SIZE,则补零
@@ -78,10 +75,10 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     for (int i = 0; i < FFT_SIZE / 2; i++) {
         float frequency = (float)i * SAMPLE_RATE / FFT_SIZE;
         if (frequency > CUTOFF_FREQUENCY) {
-            fft_output[2*i] = 0;     // 实部置零
-            fft_output[2*i + 1] = 0; // 虚部置零
+            fft_output[2 * i] = 0;     // 实部置零
+            fft_output[2 * i + 1] = 0; // 虚部置零
         }
-    }  
+    }
 
     // 频谱功率分析
     float32_t power[FFT_SIZE / 2];
@@ -90,7 +87,7 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     float32_t spectral_energy = 0;
     for (uint32_t i = 0; i < FFT_SIZE / 2; i++) {
         spectral_energy += power[i];
-    } 
+    }
 
     // 计算频谱幅值
     float32_t spectrum[FFT_SIZE / 2];
@@ -131,7 +128,9 @@ int main()
     float32_t gx_buffer[BUFFER_SIZE], gz_buffer[BUFFER_SIZE];
     uint32_t count = 0;
 
-    while(1){
+    std::string Intensity;
+
+    while (1) {
         int16_t raw_gx, raw_gy, raw_gz;
         float gx, gy, gz;
         int16_t tremor_per_second, tremor_sum;
@@ -145,35 +144,24 @@ int main()
         flags.wait_all(SPI_FLAG);
 
         // Convert the received data into 16-bit integers for each axis
-        raw_gx = (((uint16_t)read_buf[2]) << 8) | ((uint16_t) read_buf[1]);
-        raw_gy = (((uint16_t)read_buf[4]) << 8) | ((uint16_t) read_buf[3]);
-        raw_gz = (((uint16_t)read_buf[6]) << 8) | ((uint16_t) read_buf[5]);
+        raw_gx = (((uint16_t)read_buf[2]) << 8) | ((uint16_t)read_buf[1]);
+        raw_gy = (((uint16_t)read_buf[4]) << 8) | ((uint16_t)read_buf[3]);
+        raw_gz = (((uint16_t)read_buf[6]) << 8) | ((uint16_t)read_buf[5]);
 
         // Convert raw data to actual values using a scaling factor
-        gx = ((float) raw_gx) * SCALING_FACTOR ;
-        gy = ((float) raw_gy) * SCALING_FACTOR;
-        gz = ((float) raw_gz) * SCALING_FACTOR  ;
+        gx = ((float)raw_gx) * SCALING_FACTOR;
+        gy = ((float)raw_gy) * SCALING_FACTOR;
+        gz = ((float)raw_gz) * SCALING_FACTOR;
 
         lcd.Clear(LCD_COLOR_WHITE);
         uint8_t message_countdown[20];
         sprintf((char *)message_countdown, "Detecting... %d", 10 - seconds);
         lcd.DisplayStringAt(0, LINE(4), message_countdown, CENTER_MODE);
 
-        uint8_t message_tremors_cur_second[20];
-        uint8_t message_magnitude_cur_second[20];
-
-        sprintf((char *)message_tremors_cur_second, "Tremors: %d/s", tremor_per_second);
-        sprintf((char *)message_magnitude_cur_second, "Magnitude: %f", tremor_magnitude);
-        lcd.DisplayStringAt(0, LINE(12), (uint8_t *)"Current Second's Data", CENTER_MODE);
-        lcd.DisplayStringAt(0, LINE(13), (uint8_t *)message_tremors_cur_second, CENTER_MODE);
-        lcd.DisplayStringAt(0, LINE(14), (uint8_t *)message_magnitude_cur_second, CENTER_MODE);
-        
         // 假设dt为采样间隔,单位为秒
         float dt = 0.05;
-        // 对gx进行滤波
-        float32_t gx_filtered = kf_x.update(gx, 0, dt);
-        float32_t gz_filtered = kf_z.update(gz, 0, dt);
-        
+
+
         gz_buffer[buffer_index] = gz;
         buffer_index++;
 
@@ -188,38 +176,57 @@ int main()
 
             printf("Tremors: %d/s, Magnitude: %f\n", tremor_per_second, tremor_magnitude);
 
-            if (tremor_per_second >= 3 && tremor_per_second <= 15 && tremor_magnitude >= 0.5) {
+            // 判断是否为震颤
+            if (tremor_per_second >= 2 && tremor_per_second <= 15 && tremor_magnitude >= 1000) {
                 count++;
                 tremor_sum += tremor_per_second;
                 tremor_magnitude_sum += tremor_magnitude;
             }
-            
 
             if (seconds == 10) {
                 float32_t tremors_avg = (float)tremor_sum / count;
                 float32_t tremor_magnitude_avg = tremor_magnitude_sum / count;
+
                 if (count >= threshold) {
                     uint8_t message_tremors[20];
                     uint8_t message_tremor_magnitude[20];
 
-                    sprintf((char *)message_tremors, "Tremors: %4.0f/s", (float)tremor_sum / count);
-                    sprintf((char *)message_tremor_magnitude, "Magnitude: %f", tremor_magnitude_sum / count);
+                    led2 = 1;
+                    led1 = 0;
+
+                    if (tremor_magnitude_avg < 5000) {
+                        Intensity = "LOW";
+                    } 
+                    else if (5000 <= tremor_magnitude_avg && tremor_magnitude_avg < 15000) {
+                        Intensity = "MEDIUM";
+                    } 
+                    else if (tremor_magnitude_avg >= 15000) {
+                        Intensity = "HIGH";
+                    }
+
+                    sprintf((char *)message_tremors, "Tremors: %4.0fHZ/s", tremors_avg);
+                    sprintf((char *)message_tremor_magnitude, "Intensity: %s", Intensity.c_str());
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"Average Data in 10s", CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(6), (uint8_t *)message_tremors, CENTER_MODE);
                     lcd.DisplayStringAt(0, LINE(7), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
-                } else {
-                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
                 }
-                // ThisThread::sleep_for(30s);
+                else {
+                    lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
+                    led1 = 1;
+                    led2 = 0;
+                }
+                ThisThread::sleep_for(5s);
                 lcd.Clear(LCD_COLOR_WHITE);
                 seconds = 0;
                 count = 0;
                 tremor_sum = 0;
                 tremor_magnitude_sum = 0;
             }
-            buffer_index = 0;  // 清空缓冲区
+            buffer_index = 0; // 清空缓冲区
         }
         ThisThread::sleep_for(20ms);
+        led1 = 0;
+        led2 = 0;
     }
 }
