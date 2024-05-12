@@ -1,5 +1,3 @@
-
-
 class KalmanFilter {
 public:
     KalmanFilter(float q, float r) {
