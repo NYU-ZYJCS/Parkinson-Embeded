@@ -4,7 +4,6 @@
     Team Members: Yingjie Zhang, Yichen Zhang, Jiayu Li
 */
 
-
 #include <mbed.h>
 #include <cmath>
 #include "arm_math.h"
@@ -60,11 +59,11 @@ DigitalOut led1(LED1);
 // Tremor magnitude thresholds
 const float32_t TREMOR_MAGNITUDE_LOW_Z = 2500;
 const float32_t TREMOR_MAGNITUDE_MEDIUM_Z = 6000;
-const float32_t TREMOR_MAGNITUDE_HIGH_Z = 12000;
+const float32_t TREMOR_MAGNITUDE_HIGH_Z = 10000;
 
-const float32_t TREMOR_MAGNITUDE_LOW_X = 1500;
+const float32_t TREMOR_MAGNITUDE_LOW_X = 2500;
 const float32_t TREMOR_MAGNITUDE_MEDIUM_X = 6000;
-const float32_t TREMOR_MAGNITUDE_HIGH_X = 15000;
+const float32_t TREMOR_MAGNITUDE_HIGH_X = 10000;
 
 // LCD display
 LCD_DISCO_F429ZI lcd;
@@ -283,7 +282,7 @@ int main()
             printf("\n");
 
             // Check if the tremor data is within the specified range
-            if (tremor_per_second_x >= 3 && tremor_per_second_x <= 15 && tremor_magnitude_x >= 10 && tremor_magnitude_x <= 1500) {
+            if (tremor_per_second_x >= 2 && tremor_per_second_x <= 15 && tremor_magnitude_x >= 1000) {
                 count_x++;
                 tremor_sum_x += tremor_per_second_x;
                 tremor_magnitude_sum_x += tremor_magnitude_x;
@@ -329,13 +328,14 @@ int main()
                     }
                                      
                     
-                    sprintf((char *)message_tremors, "Horizontal :%4.0f /s", tremors_avg_z);
+                    sprintf((char *)message_tremors, "Tremor :%4.0f /s", tremors_avg_z);
                     sprintf((char *)message_tremor_magnitude, "%s", Intensity.c_str());
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"Average Data in 10s", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(6), (uint8_t *)message_tremors, CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(7), (uint8_t *)"Intensity:", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(6), (uint8_t *)"Average Data in 10s", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"Horizontal Tremor", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)message_tremors, CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(12), (uint8_t *)"Intensity:", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(14), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
                     
                 } 
                 // if the vertical tremor is detected
@@ -360,14 +360,15 @@ int main()
                         Intensity = "Extremely Severe";
                     }                
                     
-                    sprintf((char *)message_tremors, "Vertical :%4.0f /s", tremors_avg_x);
+                    sprintf((char *)message_tremors, "Tremor :%4.0f /s", tremors_avg_x);
                     sprintf((char *)message_tremor_magnitude, "%s", Intensity.c_str());
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"Average Data in 10s", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(6), (uint8_t *)message_tremors, CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(7), (uint8_t *)"Intensity:", CENTER_MODE);
-                    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
-                } 
+                    lcd.DisplayStringAt(0, LINE(6), (uint8_t *)"Average Data in 10s", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"Vertical Tremor", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)message_tremors, CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(12), (uint8_t *)"Intensity:", CENTER_MODE);
+                    lcd.DisplayStringAt(0, LINE(14), (uint8_t *)message_tremor_magnitude, CENTER_MODE);
+                }
                 // if no tremor is detected
                 else {
                     // If the count is less than the threshold, display the message "No Tremor Detected"
