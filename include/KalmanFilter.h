@@ -1,5 +1,10 @@
 class KalmanFilter {
 public:
+    /*
+        * Constructor
+        * q: process noise covariance
+        * r: measurement noise covariance
+    */
     KalmanFilter(float q, float r) {
         Q_angle = q;
         Q_bias = q;
@@ -12,8 +17,14 @@ public:
         P[1][1] = 0.0;
     }
 
+    /*
+        * Update the Kalman Filter
+        * newAngle: new angle
+        * newRate: new rate
+        * dt: time interval
+        * return: updated angle
+    */
     float update(float newAngle, float newRate, float dt) {
-        // 预测
         float rate = newRate - bias;
         angle += dt * rate;
 
@@ -22,7 +33,6 @@ public:
         P[1][0] -= dt * P[1][1];
         P[1][1] += Q_bias * dt;
 
-        // 更新
         float y = newAngle - angle;
         float S = P[0][0] + R_measure;
         float K[2];
