@@ -1,8 +1,50 @@
 /*
     Course：ECE6483 – Real Time Embedded Systems
     Tremor Challenge Final Project
-    Team Members: Yingjie Zhang, Yichen Zhang, Jiayu Li
+    Demo: https://youtu.be/h497cOOJKGI
+    Team 17 Members: Yingjie Zhang, Yichen Zhang, Jiayu Li
+    
+NetID:yz10759: NAME :Yichen Zhang:
+    1.Hardware setup and interface:
+        Connect STM32F429I-DISC1 development board and L3GD20 gyroscope.
+        Configure SPI interface and write functions for reading and writing gyroscope registers.
+    2.Data acquisition and preprocessing:
+        Write functions for reading raw data from the gyroscope.
+        Implement data calibration to convert raw data to angular velocity values.
+        Implement Kalman filter for filtering angular velocity data.
+    3.Tremor detection algorithm:
+        Study the characteristics of Parkinson's disease tremors and determine the frequency and amplitude thresholds for detecting tremors.
+        Implement tremor detection function to determine if tremors are detected and the direction of the tremors.
+        Optimize the tremor detection algorithm to improve detection accuracy and reliability.
+
+NetID: yz10617, NAME: Yingjie Zhang:
+    1.FFT analysis:
+        Study and understand the FFT algorithm.
+        Implement FFT analysis function, including data buffering, Hanning window, etc.
+        Optimize FFT function.
+    2.Result display:
+        Design the interface for displaying results, including tremor frequency, direction, intensity, etc.
+        Implement functions for displaying detection results on the LCD.
+        Optimize display effects, such as reasonable layout and clear readability.
+    3.Main loop and task scheduling:
+        Design and implement the main loop structure.
+        Call data acquisition, tremor detection, and result display functions in the main loop.
+        Manage timing and task scheduling, update detection results every 10 seconds.
+
+NetID: jl14882, NAME: Jiayu Li:
+    1.System integration and testing:
+        Integrate the code from Yingjie and Yichen to form a complete system.
+        Design and execute test plans to verify the functionality and performance of the system.
+        Identify and fix errors in the code based on test results.
+    2.Demonstration:
+        Prepare project demonstrations, including demonstration videos, etc.
+        Summarize feedback received during the demonstration process and improve the system accordingly.
+    3.Code optimization:
+        Review the code and identify areas for optimization, such as magic numbers, duplicate code, etc.
+        Optimize the code to improve code readability, maintainability, and efficiency.
+        Refactor the code as necessary to make it more modular and structured.
 */
+
 
 #include <mbed.h>
 #include <cmath>
@@ -13,9 +55,9 @@
 #include <LCD_DISCO_F429ZI.h>
 
 // apply Kalman filter to the gyroscope data
-KalmanFilter kf_x(0.3, 0.005);
+KalmanFilter kf_x(0.5, 0.005);
 KalmanFilter kf_y(0.1, 0.005);
-KalmanFilter kf_z(0.3, 0.005);
+KalmanFilter kf_z(0.5, 0.005);
 
 // LED1, LED2 indicates tremor detected
 DigitalOut led2(LED2);
@@ -58,12 +100,12 @@ DigitalOut led1(LED1);
 
 // Tremor magnitude thresholds
 const float32_t TREMOR_MAGNITUDE_LOW_Z = 2500;
-const float32_t TREMOR_MAGNITUDE_MEDIUM_Z = 6000;
-const float32_t TREMOR_MAGNITUDE_HIGH_Z = 10000;
+const float32_t TREMOR_MAGNITUDE_MEDIUM_Z = 5000;
+const float32_t TREMOR_MAGNITUDE_HIGH_Z = 9000;
 
-const float32_t TREMOR_MAGNITUDE_LOW_X = 2500;
-const float32_t TREMOR_MAGNITUDE_MEDIUM_X = 6000;
-const float32_t TREMOR_MAGNITUDE_HIGH_X = 10000;
+const float32_t TREMOR_MAGNITUDE_LOW_X = 2000;
+const float32_t TREMOR_MAGNITUDE_MEDIUM_X = 4000;
+const float32_t TREMOR_MAGNITUDE_HIGH_X = 8000;
 
 // LCD display
 LCD_DISCO_F429ZI lcd;
@@ -263,7 +305,6 @@ int main()
             // Increment the time counter
             seconds++;
 
-
             // Call findPeak and store the results
             std::pair<uint32_t, float32_t> gx_peak_result = findPeak(gx_buffer);
             std::pair<uint32_t, float32_t> gz_peak_result = findPeak(gz_buffer);
@@ -310,8 +351,8 @@ int main()
                     uint8_t message_tremors[20];
                     uint8_t message_tremor_magnitude[20];
 
-                    led2 = 1;
-                    led1 = 0;
+                    led2 = 1; // Turn on the LED2
+                    led1 = 0; // Turn off the LED1
                     
                     // Determine the intensity of the tremor
                     if (tremor_magnitude_avg_z < TREMOR_MAGNITUDE_LOW_Z) {
@@ -326,8 +367,8 @@ int main()
                     else if (tremor_magnitude_avg_z > TREMOR_MAGNITUDE_HIGH_Z) {
                         Intensity = "Extremely Severe";
                     }
-                                     
                     
+                    // Display the tremor data on the LCD
                     sprintf((char *)message_tremors, "Tremor :%4.0f /s", tremors_avg_z);
                     sprintf((char *)message_tremor_magnitude, "%s", Intensity.c_str());
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
@@ -343,8 +384,8 @@ int main()
                     uint8_t message_tremors[20];
                     uint8_t message_tremor_magnitude[20];
 
-                    led2 = 1;
-                    led1 = 0;
+                    led2 = 1; // Turn on the LED2
+                    led1 = 0; // Turn off the LED1
                     
                     // Determine the intensity of the tremor
                     if (tremor_magnitude_avg_x < TREMOR_MAGNITUDE_LOW_X) {
@@ -360,6 +401,7 @@ int main()
                         Intensity = "Extremely Severe";
                     }                
                     
+                    // Display the tremor data on the LCD
                     sprintf((char *)message_tremors, "Tremor :%4.0f /s", tremors_avg_x);
                     sprintf((char *)message_tremor_magnitude, "%s", Intensity.c_str());
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"Tremor Detected", CENTER_MODE);
@@ -373,8 +415,8 @@ int main()
                 else {
                     // If the count is less than the threshold, display the message "No Tremor Detected"
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
-                    led1 = 1;
-                    led2 = 0;
+                    led1 = 1; // Turn on the LED1
+                    led2 = 0; // Turn off the LED2
                 }
                 // Wait for 5 seconds
                 // Wait for 5 seconds
@@ -394,6 +436,7 @@ int main()
                 tremor_magnitude_sum_x = 0;
                 tremor_magnitude_sum_z = 0;
             }
+            // Reset the buffer index
             buffer_index = 0;
         }
         
@@ -401,7 +444,7 @@ int main()
         ThisThread::sleep_for(20ms);
 
         // Turn off the LEDs
-        led1 = 0; 
+        led1 = 0;  
         led2 = 0;
     }
     return 0;
