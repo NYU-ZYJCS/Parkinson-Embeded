@@ -88,7 +88,8 @@ uint32_t seconds = 0;
 arm_rfft_instance_f32 S;
 arm_cfft_radix4_instance_f32 S_CFFT;
 
-EventFlags flags;
+// Event flags for SPI communication
+EventFlags flags; 
 
 // SPI callback function
 void spi_cb(int event) {
@@ -113,8 +114,10 @@ void applyHanningWindow(float32_t *input, int size) {
     * @return peak_index: the index of the peak in the spectrum
 */
 pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
-    arm_rfft_init_f32(&S, &S_CFFT, FFT_SIZE, 0, 1);
+    // Initialize the RFFT and CFFT structures
+    arm_rfft_init_f32(&S, &S_CFFT, FFT_SIZE, 0, 1); 
 
+    // Input and output buffers for the FFT
     float32_t fft_input[FFT_SIZE];
     float32_t fft_output[FFT_SIZE * 2];
 
@@ -128,7 +131,8 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
 
     // apply Hanning window for decreasing the spectral leakage
     applyHanningWindow(fft_input, FFT_SIZE);
-    // 执行FFT
+
+    // Perform the FFT
     arm_rfft_f32(&S, fft_input, fft_output);
 
     // a low-pass filter to remove high frequency noise
@@ -143,8 +147,11 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
 
     // spectral power
     float32_t power[FFT_SIZE / 2];
+
+    // Calculate the power of the complex numbers
     arm_cmplx_mag_squared_f32(fft_output, power, FFT_SIZE / 2);
 
+    // Calculate the spectral energy
     float32_t spectral_energy = 0;
     for (uint32_t i = 0; i < FFT_SIZE / 2; i++) {
         spectral_energy += power[i];
@@ -159,28 +166,29 @@ pair<uint32_t, float32_t> findPeak(float32_t *buffer) {
     uint32_t peak_index = 0;
     arm_max_f32(spectrum, FFT_SIZE / 2, &peak, &peak_index);
 
+    // Return the peak index and spectral energy
     return {peak_index, spectral_energy};
 }
 
 int main()
 {
-    // Initialize the SPI object with specific pins.
+    // Initialize the SPI object with specific pins
     SPI spi(PF_9, PF_8, PF_7, PC_1, use_gpio_ssel);
 
-    // Buffers for sending and receiving data over SPI.
+    // Buffers for sending and receiving data over SPI
     uint8_t write_buf[32], read_buf[32];
 
-    // Configure SPI format and frequency.
+    // Configure SPI format and frequency
     spi.format(8, 3);
     spi.frequency(1'000'000);
 
-    // Configure CTRL_REG1 register.
+    // Configure CTRL_REG1 register
     write_buf[0] = CTRL_REG1;
     write_buf[1] = CTRL_REG1_CONFIG;
     spi.transfer(write_buf, 2, read_buf, 2, spi_cb);
     flags.wait_all(SPI_FLAG);
 
-    // Configure CTRL_REG4 register.
+    // Configure CTRL_REG4 register
     write_buf[0] = CTRL_REG4;
     write_buf[1] = CTRL_REG4_CONFIG;
     spi.transfer(write_buf, 2, read_buf, 2, spi_cb);
@@ -226,8 +234,14 @@ int main()
 
         // Clear the LCD screen
         lcd.Clear(LCD_COLOR_WHITE);
+
+        // Display the gyroscope data
         uint8_t message_countdown[20];
+
+        // Display the countdown message
         sprintf((char *)message_countdown, "Detecting... %d", 10 - seconds);
+
+        // Display the message on the LCD
         lcd.DisplayStringAt(0, LINE(4), message_countdown, CENTER_MODE);
 
 
@@ -247,7 +261,9 @@ int main()
 
         // If the buffer is full, perform FFT
         if (buffer_index == BUFFER_SIZE) {
+            // Increment the time counter
             seconds++;
+
 
             // Call findPeak and store the results
             std::pair<uint32_t, float32_t> gx_peak_result = findPeak(gx_buffer);
@@ -354,13 +370,19 @@ int main()
                 } 
                 // if no tremor is detected
                 else {
+                    // If the count is less than the threshold, display the message "No Tremor Detected"
                     lcd.DisplayStringAt(0, LINE(4), (uint8_t *)"No Tremor Detected", CENTER_MODE);
                     led1 = 1;
                     led2 = 0;
                 }
                 // Wait for 5 seconds
+                // Wait for 5 seconds
                 ThisThread::sleep_for(5s);
+
+                // Clear the LCD
                 lcd.Clear(LCD_COLOR_WHITE);
+
+                // Reset the variables
 
                 // Reset the variables
                 seconds = 0;
@@ -373,8 +395,12 @@ int main()
             }
             buffer_index = 0;
         }
+        
+        // Wait for 20ms
         ThisThread::sleep_for(20ms);
-        led1 = 0;
+
+        // Turn off the LEDs
+        led1 = 0; 
         led2 = 0;
     }
     return 0;
