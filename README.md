@@ -23,3 +23,7 @@ To develop a reliable tremor detection system that measures the gyroscope's real
 **Output and Visualization**
 
 STM32F429 Discovery board displays whether a tremor has been detected or not, and if detected, the display updates to show the tremor’s intensity measured over the 10-second period. This allows users to immediately detect the status of tremor detection and its severity.
+
+![Horizontal_tremor](https://github.com/NYU-ZYJCS/Parkinson-Embeded/blob/main/img/horizontal_tremor.png)
+
+![Vertical_tremor](https://github.com/NYU-ZYJCS/Parkinson-Embeded/blob/main/img/vertical_tremor.png)
